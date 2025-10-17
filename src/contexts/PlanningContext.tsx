@@ -1,6 +1,7 @@
 // src/contexts/PlanningContext.tsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import * as planningService from '../services/PlanningService';
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { PlanningService } from '../services/PlanningService';
+import toast from 'react-hot-toast';
 
 interface PlanningContextType {
   plannings: any[];
@@ -10,6 +11,7 @@ interface PlanningContextType {
   addPlanning: (data: any) => Promise<void>;
   editPlanning: (id: number, data: any) => Promise<void>;
   removePlanning: (id: number) => Promise<void>;
+  clearError: () => void;
 }
 
 const PlanningContext = createContext<PlanningContextType | undefined>(undefined);
@@ -19,42 +21,59 @@ export const PlanningProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const clearError = () => setError(null);
+
   const loadPlannings = async () => {
     setLoading(true);
+    clearError();
     try {
-      const data = await planningService.fetchPlannings();
+      const data = await PlanningService.getAllPlannings(); // ✅ Utilise la méthode existante
       setPlannings(data);
     } catch (err: any) {
-      setError(err);
+      const errorMessage = err.message || 'Erreur lors du chargement des plannings';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const addPlanning = async (data: any) => {
+    clearError();
     try {
-      const newPlanning = await planningService.createPlanning(data);
+      const newPlanning = await PlanningService.createPlanning(data);
       setPlannings((prev) => [...prev, newPlanning]);
     } catch (err: any) {
-      setError(err);
+      const errorMessage = err.message || 'Erreur lors de la création du planning';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw err; // Propager l'erreur pour la gérer dans le composant
     }
   };
 
   const editPlanning = async (id: number, data: any) => {
+    clearError();
     try {
-      const updated = await planningService.updatePlanning(id, data);
+      const updated = await PlanningService.updatePlanning(id, data);
       setPlannings((prev) => prev.map((p) => (p.id === id ? updated : p)));
     } catch (err: any) {
-      setError(err);
+      const errorMessage = err.message || 'Erreur lors de la mise à jour du planning';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw err;
     }
   };
 
   const removePlanning = async (id: number) => {
+    clearError();
     try {
-      await planningService.deletePlanning(id);
+      await PlanningService.deletePlanning(id);
       setPlannings((prev) => prev.filter((p) => p.id !== id));
     } catch (err: any) {
-      setError(err);
+      const errorMessage = err.message || 'Erreur lors de la suppression du planning';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw err;
     }
   };
 
@@ -64,15 +83,27 @@ export const PlanningProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   return (
     <PlanningContext.Provider
-      value={{ plannings, loading, error, loadPlannings, addPlanning, editPlanning, removePlanning }}
+      value={{
+        plannings,
+        loading,
+        error,
+        loadPlannings,
+        addPlanning,
+        editPlanning,
+        removePlanning,
+        clearError
+      }}
     >
       {children}
     </PlanningContext.Provider>
   );
 };
 
-export const usePlanning = () => {
+// ✅ Hook personnalisé
+export const usePlanning = (): PlanningContextType => {
   const context = useContext(PlanningContext);
-  if (!context) throw new Error("usePlanning doit être utilisé dans un PlanningProvider");
+  if (!context) {
+    throw new Error("usePlanning doit être utilisé à l'intérieur de PlanningProvider");
+  }
   return context;
 };

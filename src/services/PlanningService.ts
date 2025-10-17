@@ -1,51 +1,79 @@
-// src/services/planningService.ts
-import * as planningApi from '../api/planningApi';
+// src/services/PlanningService.ts
+import { PlanningApi } from '../api/planningApi';
+import type { Planning, CreatePlanningData, UpdatePlanningData } from '../types/Types';
+import toast from "react-hot-toast";
 
-export const fetchPlannings = async () => {
-  try {
-    const res = await planningApi.getPlannings();
-    return res.data;
-  } catch (error: any) {
-    throw error.response?.data || error.message;
+export class PlanningService {
+
+  // CREATE
+  static async createPlanning(data: CreatePlanningData): Promise<Planning> {
+    try {
+      if (!data.site_id) throw new Error('Le site est requis');
+      if (!Array.isArray(data.agents)) throw new Error('Les agents doivent être une liste');
+
+      const response = await PlanningApi.createPlanning(data);
+      toast.success("Planning créé avec succès");
+      return response.data;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Erreur lors de la création du planning: ${message}`);
+    }
   }
-};
 
-export const fetchPlanning = async (id: number) => {
-  try {
-    const res = await planningApi.getPlanning(id);
-    return res.data;
-  } catch (error: any) {
-    throw error.response?.data || error.message;
+  // READ ALL
+  static async getAllPlannings(): Promise<Planning[]> {
+    try {
+      const response = await PlanningApi.getPlannings();
+      toast.success("Plannings chargés avec succès");
+      return response.data;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Erreur lors de la récupération des plannings: ${message}`);
+    }
   }
-};
 
-export const createPlanning = async (data: any) => {
-  try {
-    // 💡 On peut valider ici avant d’envoyer
-    if (!data.site_id) throw new Error('Le site est requis');
-    if (!Array.isArray(data.agents)) throw new Error('Les agents doivent être une liste');
-
-    const res = await planningApi.createPlanning(data);
-    return res.data;
-  } catch (error: any) {
-    throw error.response?.data || error.message;
+  // READ BY ID
+  static async getPlanningById(id: number): Promise<Planning> {
+    try {
+      const response = await PlanningApi.getPlanning(id);
+      return response.data;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Erreur lors de la récupération du planning: ${message}`);
+    }
   }
-};
 
-export const updatePlanning = async (id: number, data: any) => {
-  try {
-    const res = await planningApi.updatePlanning(id, data);
-    return res.data;
-  } catch (error: any) {
-    throw error.response?.data || error.message;
+  // READ BY AGENT
+  static async getPlanningsByAgent(agent_id: number): Promise<Planning[]> {
+    try {
+      const response = await PlanningApi.getPlanningsByAgent(agent_id);
+      return response.data;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Erreur lors de la récupération des plannings de l'agent: ${message}`);
+    }
   }
-};
 
-export const deletePlanning = async (id: number) => {
-  try {
-    await planningApi.deletePlanning(id);
-    return true;
-  } catch (error: any) {
-    throw error.response?.data || error.message;
+  // UPDATE
+  static async updatePlanning(id: number, data: UpdatePlanningData): Promise<Planning> {
+    try {
+      const response = await PlanningApi.updatePlanning(id, data);
+      toast.success("Planning mis à jour avec succès");
+      return response.data;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Erreur lors de la mise à jour du planning: ${message}`);
+    }
   }
-};
+
+  // DELETE
+  static async deletePlanning(id: number): Promise<void> {
+    try {
+      await PlanningApi.deletePlanning(id);
+      toast.success("Planning supprimé avec succès");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Erreur lors de la suppression du planning: ${message}`);
+    }
+  }
+}

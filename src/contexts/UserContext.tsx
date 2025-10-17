@@ -1,16 +1,7 @@
 // src/contexts/UserContext.tsx
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { UserService } from "../services/UserService";
-
-interface User {
-  id: number;
-  first_name: string;
-  last_name: string;
-  phone: string;
-  email: string;
-  role: string;
-  is_locked: boolean;
-}
+import type { User } from "@/types/Types";
 
 interface UserContextType {
   users: User[];
@@ -33,31 +24,54 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const data = await UserService.getUsers();
       setUsers(data);
+    } catch (error) {
+      console.error('Erreur dans fetchUsers:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const createUser = async (data: any) => {
-    await UserService.createUser(data);
-    await fetchUsers();
+    try {
+      await UserService.createUser(data);
+      await fetchUsers(); // Recharger la liste
+    } catch (error) {
+      console.error('Erreur dans createUser:', error);
+      throw error;
+    }
   };
 
   const updateUser = async (id: number, data: Partial<User>) => {
-    await UserService.updateUser(id, data);
-    await fetchUsers();
+    try {
+      await UserService.updateUser(id, data);
+      await fetchUsers();
+    } catch (error) {
+      console.error('Erreur dans updateUser:', error);
+      throw error;
+    }
   };
 
   const deleteUser = async (id: number) => {
-    await UserService.deleteUser(id);
-    setUsers((prev) => prev.filter((u) => u.id !== id));
+    try {
+      await UserService.deleteUser(id);
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+    } catch (error) {
+      console.error('Erreur dans deleteUser:', error);
+      throw error;
+    }
   };
 
   const toggleLock = async (id: number) => {
-    await UserService.toggleLock(id);
-    await fetchUsers();
+    try {
+      await UserService.toggleLock(id);
+      await fetchUsers();
+    } catch (error) {
+      console.error('Erreur dans toggleLock:', error);
+      throw error;
+    }
   };
 
+  // ✅ UserContext se charge automatiquement au montage
   useEffect(() => {
     fetchUsers();
   }, []);
