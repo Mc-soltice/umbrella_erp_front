@@ -1,29 +1,48 @@
 // src/services/AuthService.ts
 import * as authAPI from '../api/authApi';
-import type { User } from '../types/Types';
+import type { User, } from '../types/Types';
+
+// ✅ Ajouter ce type si pas déjà dans vos types
+interface LoginResponseData {
+  token: string;
+  user: User;
+}
 
 export const AuthService = {
   async login(matricule: string, password: string): Promise<{ token: string; user: User }> {
     try {
-      const response: any = await authAPI.login({ matricule, password });
-      const { token, user } = response.data;
+      const response = await authAPI.login({ matricule, password });
+      const { token, user } = response.data as LoginResponseData;
 
       // ✅ Stocker avec les bonnes clés
       localStorage.setItem("authToken", token);
       localStorage.setItem("authUser", JSON.stringify(user));
-      
+
       console.log("✅ Login réussi - Token stocké:", token.substring(0, 20) + "...");
-      
+
       return { token, user };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("❌ Erreur login:", error);
-      throw new Error(error.response?.data?.message || "Erreur de connexion");
+
+      // ✅ Nettoyer en cas d'erreur
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("authUser");
+
+      if (error instanceof Error) {
+        throw new Error(error.message || "Erreur de connexion");
+      } else {
+        throw new Error("Erreur de connexion inconnue");
+      }
     }
   },
 
   async logout(): Promise<void> {
     try {
-      await authAPI.logout();
+      // ✅ Vérifier si on a un token avant d'appeler l'API
+      const token = localStorage.getItem("authToken");
+      if (token) {
+        await authAPI.logout();
+      }
     } catch (error) {
       console.warn("⚠️ Erreur lors du logout API :", error);
     } finally {
@@ -40,24 +59,36 @@ export const AuthService = {
       const userStr = localStorage.getItem("authUser");
 
       if (!token || !userStr) {
-        console.log("❌ Token ou user manquant dans localStorage");
+        console.log("🔍 Token ou user manquant dans localStorage");
         return null;
       }
 
       const user = JSON.parse(userStr);
       console.log("✅ User restauré depuis localStorage:", user.first_name);
-      
+
       return user;
     } catch (error) {
       console.error("❌ Erreur getCurrentUser:", error);
-      this.logout();
+      // Nettoyer les données corrompues
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("authUser");
       return null;
     }
   },
 
   // ✅ Méthode utilitaire pour vérifier l'authentification
   isAuthenticated(): boolean {
-    return !!localStorage.getItem("authToken");
+    const token = localStorage.getItem("authToken");
+    const userStr = localStorage.getItem("authUser");
+
+    if (!token || !userStr) return false;
+
+    try {
+      JSON.parse(userStr);
+      return true;
+    } catch {
+      return false;
+    }
   },
 
   // ✅ Méthode pour récupérer le token

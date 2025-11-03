@@ -2,9 +2,20 @@
 import axios from 'axios';
 
 const axiosClient = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: (import.meta.env as any).VITE_API_URL ?? 'http://localhost:8000/api',
   headers: { 'Content-Type': 'application/json' },
 });
+
+// DEBUG: affiche la baseURL utilisée au lancement (vérifier dans la console du navigateur)
+try {
+  // window may be undefined in SSR environments; guard safely
+  if (typeof window !== 'undefined') {
+    // eslint-disable-next-line no-console
+    console.log('[axiosClient] baseURL =', axiosClient.defaults.baseURL);
+  }
+} catch (e) {
+  // ignore
+}
 
 axiosClient.interceptors.request.use(config => {
   // ✅ CORRECTION : Utiliser 'authToken' au lieu de 'token'

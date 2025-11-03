@@ -1,104 +1,113 @@
-// src/pages/Sites/SitesManagement.tsx
+// src/pages/Sites/SiteManagement.tsx
 import { useState, useEffect } from 'react';
+import type { Site } from "../../types/Types";
 import { useSites } from '../../contexts/SiteContext';
-import { useUsers } from '../../contexts/UserContext';
 import { Orbit } from 'ldrs/react';
-import {
-  Building2,
-  PlusCircle,
+import 'ldrs/react/Orbit.css';
+import { 
+  PlusCircle, 
   Search,
-  Edit,
-  Trash2,
-  Eye,
-  MapPin,
-  User
+  Building,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
-import CreateSiteModal from './components/CreateSiteModal';
+import AddSiteModal from './components/AddSiteModal';
 import EditSiteModal from './components/EditSiteModal';
-import SiteDetailsModal from './components/SiteDetailsModal';
-import type { Site } from '../../types/Types';
+import DetailSiteModal from './components/DetailSiteModal';
+import SiteTable from './components/SiteTable';
 
-export default function SitesManagement() {
-  const {
-    sites,
-    loading,
+export default function SiteManagement() {
+  const { 
+    sites, 
+    loading, 
     hasLoaded,
+    error,
     fetchSites,
-    deleteSite
+    clearError
   } = useSites();
-
-  const { users, } = useUsers();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  // 🔹 Charger les données au montage - CORRIGÉ
+useEffect(() => {
+  // n'essaye de charger qu'une seule fois si pas déjà chargé
+  if (!hasLoaded && !loading) {
+    fetchSites().catch(err => {
+      // on loggue localement — l'erreur est stockée dans le contexte (error)
+      console.error("Erreur lors du fetchSites (useEffect) :", err);
+    });
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [hasLoaded, loading]); 
 
 
-
-  // 🔹 Charger les données - Version simplifiée
-  useEffect(() => {
-    console.log('🔄 useEffect triggered - hasLoaded:', hasLoaded, 'loading:', loading);
-    if (!hasLoaded && !loading) {
-      console.log('🎯 Appel de fetchSites...');
-      fetchSites();
-    }
-  }, [fetchSites, hasLoaded, loading]); // Gardez ces dépendances
+  // 🔹 S'assurer que sites est toujours un tableau
+  const safeSites = Array.isArray(sites) ? sites : [];
 
   // 🔹 Filtrer les sites
-  const filteredSites = sites.filter(site =>
-    site.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    site.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (site.responsable?.first_name + ' ' + site.responsable?.last_name)
-      .toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredSites = safeSites.filter(site => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      site.name?.toLowerCase().includes(searchLower) ||
+      site.location?.toLowerCase().includes(searchLower) ||
+      site.responsable?.first_name?.toLowerCase().includes(searchLower) ||
+      site.responsable?.last_name?.toLowerCase().includes(searchLower)
+    );
+  });
 
-  // 🔹 Gestion de la suppression
-  const handleDeleteSite = async (id: number) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce site ?')) {
-      try {
-        await deleteSite(id);
-      } catch (error) {
-        console.error('Erreur lors de la suppression:', error);
-        alert('Erreur lors de la suppression du site');
-      }
-    }
+  // 🔹 Réessayer le chargement
+  const handleRetry = async () => {
+    clearError();
+    await fetchSites();
   };
 
-  // 🔹 Ouvrir les modals
-  const handleViewDetails = (site: Site) => {
-    setSelectedSite(site);
-    setShowDetailsModal(true);
-  };
+  console.log('🔹 État du contexte:', {
+    hasLoaded,
+    loading,
+    error,
+    sitesCount: safeSites.length,
+    filteredCount: filteredSites.length
+  });
 
-  const handleOpenEdit = (site: Site) => {
+  // 🔹 Ouvrir le modal de modification
+  const handleOpenEditModal = (site: Site) => {
     setSelectedSite(site);
     setShowEditModal(true);
-    setShowDetailsModal(false);
+    setShowDetailModal(false);
   };
 
-  // 🔹 États d'affichage - AMÉLIORÉS
-  const showLoading = loading && sites.length === 0;
-  const showEmptyState = !loading && hasLoaded && sites.length === 0;
-  const showContent = !loading && sites.length > 0;
-  const showSearchEmptyState = !loading && searchTerm && filteredSites.length === 0;
+  // 🔹 Ouvrir le modal de détail
+  const handleViewDetails = (site: Site) => {
+    setSelectedSite(site);
+    setShowDetailModal(true);
+  };
+
+  // 🔹 Gérer la fermeture des modaux
+  const handleCloseModals = () => {
+    setShowAddModal(false);
+    setShowEditModal(false);
+    setShowDetailModal(false);
+    setSelectedSite(null);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50/30 p-6">
       {/* En-tête */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-blue-100 rounded-2xl">
-            <Building2 className="w-8 h-8 text-blue-600" />
+          <div className="p-3 bg-green-100 rounded-2xl">
+            <Building className="w-8 h-8 text-blue-600" />
           </div>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Gestion des Sites</h1>
             <p className="text-gray-600 mt-1">
-              {showLoading ? 'Chargement...' :
-                showEmptyState ? 'Aucun site' :
-                  showSearchEmptyState ? 'Aucun résultat' :
-                    `${filteredSites.length} site(s)`}
+              {loading ? 'Chargement...' : 
+               error ? 'Erreur de chargement' : 
+               `${filteredSites.length} site(s)`}
             </p>
           </div>
         </div>
@@ -109,14 +118,16 @@ export default function SitesManagement() {
             <input
               type="text"
               placeholder="Rechercher un site..."
-              className="pl-10 pr-4 py-3 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full lg:w-80"
+              className="pl-10 pr-4 py-3 border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent w-full lg:w-80"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              disabled={loading || !!error}
             />
           </div>
           <button
-            className="btn bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-none shadow-soft-lg px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all duration-200"
-            onClick={() => setShowCreateModal(true)}
+            className="bg-gradient-to-r from-blue-400 to-blue-600 text-white hover:from-blue-500 hover:to-blue-700 border-none shadow-soft-lg px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => setShowAddModal(true)}
+            disabled={loading}
           >
             <PlusCircle className="w-5 h-5" />
             Nouveau Site
@@ -125,147 +136,79 @@ export default function SitesManagement() {
       </div>
 
       {/* Contenu principal */}
-      {showLoading ? (
+      {loading ? (
         <div className="flex justify-center items-center py-20">
           <div className="text-center">
-            <Orbit size="60" speed="1.5" color="#3b82f6" />
+            <Orbit size="60" speed="1.5" color="blue" />
             <p className="mt-4 text-gray-600 text-lg">Chargement des sites...</p>
           </div>
         </div>
-      ) : showEmptyState ? (
-        <div className="bg-white rounded-2xl shadow-soft-lg p-12 text-center">
-          <Building2 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">Aucun site</h3>
-          <p className="text-gray-500 mb-6">
-            Commencez par créer votre premier site
-          </p>
-          <button
-            className="btn bg-gradient-to-r from-blue-500 to-blue-600 text-white border-none shadow-soft-lg px-6 py-3 rounded-xl font-semibold flex items-center gap-2 mx-auto"
-            onClick={() => setShowCreateModal(true)}
-          >
-            <PlusCircle className="w-5 h-5" />
-            Créer un site
-          </button>
-        </div>
-      ) : showSearchEmptyState ? (
-        <div className="bg-white rounded-2xl shadow-soft-lg p-12 text-center">
-          <Search className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">Aucun résultat</h3>
-          <p className="text-gray-500 mb-6">
-            Aucun site ne correspond à votre recherche "{searchTerm}"
-          </p>
-          <button
-            className="btn btn-outline border-gray-300 text-gray-700 hover:bg-gray-50 px-6 py-3 rounded-xl font-semibold"
-            onClick={() => setSearchTerm('')}
-          >
-            Réinitialiser la recherche
-          </button>
-        </div>
-      ) : showContent ? (
-        <div className="bg-white rounded-2xl shadow-soft-lg overflow-hidden">
-          {/* Tableau */}
-          <div className="overflow-x-auto">
-            <table className="table table-zebra w-full">
-              <thead className="bg-gray-50/80">
-                <tr>
-                  <th className="bg-transparent font-semibold text-gray-700 py-4">Site</th>
-                  <th className="bg-transparent font-semibold text-gray-700 py-4">Localisation</th>
-                  <th className="bg-transparent font-semibold text-gray-700 py-4">Responsable</th>
-                  <th className="bg-transparent font-semibold text-gray-700 py-4 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSites.map((site) => (
-                  <tr key={site.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="py-4">
-                      <div className="font-semibold text-gray-900">{site.name}</div>
-                    </td>
-                    <td className="py-4">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <MapPin className="w-4 h-4" />
-                        {site.location}
-                      </div>
-                    </td>
-                    <td className="py-4">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <User className="w-4 h-4" />
-                        {site.responsable ?
-                          `${site.responsable.first_name} ${site.responsable.last_name}` :
-                          'Non assigné'
-                        }
-                      </div>
-                    </td>
-                    <td className="py-4">
-                      <div className="flex justify-center gap-2">
-                        <button
-                          onClick={() => handleViewDetails(site)}
-                          className="btn btn-ghost btn-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all"
-                          title="Voir les détails"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleOpenEdit(site)}
-                          className="btn btn-ghost btn-sm text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all"
-                          title="Modifier"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSite(site.id)}
-                          className="btn btn-ghost btn-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      ) : error ? (
+        // 🔹 AFFICHAGE DE L'ERREUR - CORRIGÉ
+        <div className="flex justify-center items-center py-20">
+          <div className="text-center max-w-md">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Erreur de chargement</h3>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <button
+              onClick={handleRetry}
+              className="bg-gradient-to-r from-blue-500 to-blue-700 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 mx-auto hover:from-blue-600 hover:to-blue-800 transition-all duration-200"
+            >
+              <RefreshCw className="w-5 h-5" />
+              Réessayer
+            </button>
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-soft-lg p-12 text-center">
-          <Building2 className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">État inattendu</h3>
-          <p className="text-gray-500 mb-6">
-            Veuillez rafraîchir la page
-          </p>
-          <button
-            className="btn bg-gradient-to-r from-blue-500 to-blue-600 text-white border-none shadow-soft-lg px-6 py-3 rounded-xl font-semibold"
-            onClick={() => window.location.reload()}
-          >
-            Rafraîchir
-          </button>
+        <div className="bg-white rounded-2xl shadow-soft-lg overflow-hidden">
+          {/* Tableau */}
+          {filteredSites.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <Building className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p className="text-lg">
+                {searchTerm ? 'Aucun site correspondant' : 'Aucun site disponible'}
+              </p>
+              {searchTerm ? (
+                <p className="text-sm mt-1">Essayez de modifier vos critères de recherche</p>
+              ) : (
+                <p className="text-sm mt-1">Commencez par créer votre premier site</p>
+              )}
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="mt-4 bg-gradient-to-r from-blue-400 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 mx-auto hover:from-blue-500 hover:to-blue-700 transition-all duration-200"
+              >
+                <PlusCircle className="w-5 h-5" />
+                Créer un site
+              </button>
+            </div>
+          ) : (
+            <SiteTable
+              sites={filteredSites}
+              onViewDetails={handleViewDetails}
+              onEdit={handleOpenEditModal}
+            />
+          )}
         </div>
       )}
 
-      {/* Modals */}
-      <CreateSiteModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        users={users}
+      {/* Modaux */}
+      <AddSiteModal
+        isOpen={showAddModal}
+        onClose={handleCloseModals}
       />
 
-      {selectedSite && (
-        <>
-          <SiteDetailsModal
-            isOpen={showDetailsModal}
-            onClose={() => setShowDetailsModal(false)}
-            site={selectedSite}
-            onEdit={() => handleOpenEdit(selectedSite)}
-          />
+      <DetailSiteModal
+        isOpen={showDetailModal}
+        onClose={handleCloseModals}
+        site={selectedSite}
+        onEdit={handleOpenEditModal}
+      />
 
-          <EditSiteModal
-            isOpen={showEditModal}
-            onClose={() => setShowEditModal(false)}
-            site={selectedSite}
-            users={users}
-          />
-        </>
-      )}
+      <EditSiteModal
+        isOpen={showEditModal}
+        onClose={handleCloseModals}
+        site={selectedSite}
+      />
     </div>
   );
 }

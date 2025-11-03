@@ -1,18 +1,19 @@
 // src/services/PlanningService.ts
 import { PlanningApi } from '../api/planningApi';
-import type { Planning, CreatePlanningData, UpdatePlanningData } from '../types/Types';
-import toast from "react-hot-toast";
+import type { CreatePlanningData, Planning, UpdatePlanningData } from '../types/Types';
 
 export class PlanningService {
-
   // CREATE
   static async createPlanning(data: CreatePlanningData): Promise<Planning> {
     try {
+      // ✅ CORRECTION : Vérification adaptée à la nouvelle structure
       if (!data.site_id) throw new Error('Le site est requis');
-      if (!Array.isArray(data.agents)) throw new Error('Les agents doivent être une liste');
+      if (!data.shifts?.MORNING?.agents || !data.shifts?.EVENING?.agents) {
+        throw new Error('Les deux shifts doivent contenir des agents');
+      }
 
       const response = await PlanningApi.createPlanning(data);
-      toast.success("Planning créé avec succès");
+      // ✅ Le toast est déjà dans l'API, on peut le retirer ici
       return response.data;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erreur inconnue';
@@ -21,10 +22,9 @@ export class PlanningService {
   }
 
   // READ ALL
-  static async getAllPlannings(): Promise<Planning[]> {
+  static async getPlannings(): Promise<Planning[]> {
     try {
       const response = await PlanningApi.getPlannings();
-      toast.success("Plannings chargés avec succès");
       return response.data;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erreur inconnue';
@@ -33,7 +33,7 @@ export class PlanningService {
   }
 
   // READ BY ID
-  static async getPlanningById(id: number): Promise<Planning> {
+  static async getPlanning(id: number): Promise<Planning> {
     try {
       const response = await PlanningApi.getPlanning(id);
       return response.data;
@@ -58,7 +58,6 @@ export class PlanningService {
   static async updatePlanning(id: number, data: UpdatePlanningData): Promise<Planning> {
     try {
       const response = await PlanningApi.updatePlanning(id, data);
-      toast.success("Planning mis à jour avec succès");
       return response.data;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erreur inconnue';
@@ -70,7 +69,6 @@ export class PlanningService {
   static async deletePlanning(id: number): Promise<void> {
     try {
       await PlanningApi.deletePlanning(id);
-      toast.success("Planning supprimé avec succès");
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erreur inconnue';
       throw new Error(`Erreur lors de la suppression du planning: ${message}`);

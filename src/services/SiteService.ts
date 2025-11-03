@@ -1,17 +1,21 @@
 // src/services/SiteService.ts
 import * as siteAPI from "../api/siteApi";
-import type { Site } from "../types/Types";
+
+import type { Site, CreateSiteData, UpdateSiteData } from "../types/Types";
 
 export const SiteService = {
   async getSites(): Promise<Site[]> {
     try {
       const response = await siteAPI.getSites();
-      return response.data;
+      return response.data.data || response.data;
+      // return response.data || [];
     } catch (error: any) {
       console.error("Erreur lors du chargement des sites :", error);
       throw error; // ✅ Juste throw, pas de toast
     }
   },
+
+
 
   async getSite(id: number): Promise<Site> {
     try {
@@ -23,7 +27,7 @@ export const SiteService = {
     }
   },
 
-  async createSite(data: Partial<Site>): Promise<Site> {
+  async createSite(data: CreateSiteData): Promise<Site> {
     try {
       const response = await siteAPI.createSite(data);
       return response.data;
@@ -33,7 +37,7 @@ export const SiteService = {
     }
   },
 
-  async updateSite(id: number, data: Partial<Site>): Promise<Site> {
+  async updateSite(id: number, data: UpdateSiteData): Promise<Site> {
     try {
       const response = await siteAPI.updateSite(id, data);
       return response.data;

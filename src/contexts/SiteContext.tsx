@@ -1,20 +1,26 @@
-// src/contexts/SiteContext.tsx
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useCallback, useContext, useRef, useState } from "react";
+import toast from "react-hot-toast";
 import { SiteService } from "../services/SiteService";
 import type { Site } from "../types/Types";
-import toast from "react-hot-toast";
 
 interface SiteContextType {
   sites: Site[];
   selectedSite: Site | null;
   loading: boolean;
   hasLoaded: boolean;
+  error: string | null;
+  operationLoading: {
+    create: boolean;
+    update: boolean;
+    delete: boolean;
+  };
   fetchSites: () => Promise<void>;
   fetchSite: (id: number) => Promise<void>;
   createSite: (data: Partial<Site>) => Promise<Site>;
   updateSite: (id: number, data: Partial<Site>) => Promise<Site>;
   deleteSite: (id: number) => Promise<void>;
   clearSites: () => void;
+  clearError: () => void;
 }
 
 const SiteContext = createContext<SiteContextType>({} as SiteContextType);
@@ -22,100 +28,134 @@ const SiteContext = createContext<SiteContextType>({} as SiteContextType);
 export const SiteProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sites, setSites] = useState<Site[]>([]);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [hasLoaded, setHasLoaded] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const isFetchingRef = useRef(false);
+  const [operationLoading, setOperationLoading] = useState({
+    create: false,
+    update: false,
+    delete: false,
+  });
 
-
-  // 🔹 Récupérer tous les sites - CORRIGÉ sans dépendance loading
+  // ✅ fetchSites : bien fermée
+  // ✅ fetchSites : CORRIGÉE avec typage sécurisé
   const fetchSites = useCallback(async () => {
-    if (loading) {
-      console.log('⏳ Fetch déjà en cours, skip...');
+    if (isFetchingRef.current) {
+      console.warn("⏳ fetchSites ignoré : déjà en cours");
       return;
     }
 
+    isFetchingRef.current = true;
     setLoading(true);
+    setError(null);
+
     try {
-      console.log('🚀 Début du chargement des sites...');
       const data = await SiteService.getSites();
-      setSites(data);
+      console.log("📦 Réponse de getSites:", data);
+
+      // ✅ CORRECTION AVEC TYPAGE SÉCURISÉ
+      let sitesArray: Site[] = [];
+
+      if (Array.isArray(data)) {
+        sitesArray = data;
+      } else if (data && typeof data === 'object' && 'data' in data) {
+        // ✅ Vérification type-safe que data a une propriété 'data'
+        sitesArray = (data as any).data || [];
+      }
+
+      console.log("🏗️ Sites à enregistrer:", sitesArray);
+      setSites(sitesArray);
       setHasLoaded(true);
-      console.log('✅ Sites chargés avec succès');
-    } catch (error) {
-      console.error("❌ Erreur lors du chargement des sites :", error);
-      toast.error("Impossible de charger la liste des sites.");
+
+    } catch (err: any) {
+      console.error("Erreur lors du chargement des sites :", err);
+      const msg = err?.message || "Impossible de charger les sites.";
+      setError(msg);
+      setSites([]);
+      setHasLoaded(true);
     } finally {
+      console.log("✅ Fin du fetchSites");
       setLoading(false);
-      console.log('🏁 Chargement terminé');
+      isFetchingRef.current = false;
     }
   }, []);
 
-  // 🔹 Récupérer un site
-  const fetchSite = async (id: number) => {
+  // ✅ fetchSite
+  const fetchSite = useCallback(async (id: number) => {
     setLoading(true);
+    setError(null);
     try {
       const data = await SiteService.getSite(id);
-      setSelectedSite(data);
-    } catch (error) {
-      console.error("Erreur lors du chargement du site :", error);
-      toast.error("Erreur lors du chargement du site.");
+      setSelectedSite(data || null);
+    } catch (err: any) {
+      console.error("Erreur lors du chargement du site :", err);
+      setError(err?.message || "Erreur lors du chargement du site.");
+      setSelectedSite(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // 🔹 Créer un site
-  const createSite = async (data: Partial<Site>) => {
+  // ✅ createSite
+  const createSite = useCallback(async (data: Partial<Site>) => {
+    setOperationLoading(p => ({ ...p, create: true }));
     try {
-      const newSite = await SiteService.createSite(data);
-      setSites((prev) => [...prev, newSite]);
-      toast.success("Site créé avec succès !");
+      const newSite = await SiteService.createSite(data as any);
+      setSites(prev => [...prev, newSite]);
+      toast.success("Site créé avec succès");
       return newSite;
-    } catch (error) {
-      console.error("Erreur lors de la création du site :", error);
-      toast.error("Échec de la création du site.");
-      throw error;
+    } catch (err: any) {
+      console.error("Erreur création site :", err);
+      throw err;
+    } finally {
+      setOperationLoading(p => ({ ...p, create: false }));
     }
-  };
+  }, []);
 
-  // 🔹 Mettre à jour un site
-  const updateSite = async (id: number, data: Partial<Site>) => {
+  // ✅ updateSite
+  const updateSite = useCallback(async (id: number, data: Partial<Site>) => {
+    setOperationLoading(p => ({ ...p, update: true }));
     try {
-      const updated = await SiteService.updateSite(id, data);
-      setSites((prev) => prev.map((s) => (Number(s.id) === Number(id) ? updated : s)));
-      if (Number(selectedSite?.id) === id) {
-        setSelectedSite(updated);
-      }
-      toast.success("Site mis à jour avec succès !");
+      const updated = await SiteService.updateSite(id, data as any);
+      setSites(prev => prev.map(s => (Number(s.id) === Number(id) ? updated : s)));
+      if (Number(selectedSite?.id) === Number(id)) setSelectedSite(updated);
+      toast.success("Site mis a jour avec succès");
       return updated;
-    } catch (error) {
-      console.error("Erreur lors de la mise à jour du site :", error);
-      toast.error("Impossible de mettre à jour le site.");
-      throw error;
+    } catch (err: any) {
+      console.error("Erreur maj site :", err);
+      throw err;
+    } finally {
+      setOperationLoading(p => ({ ...p, update: false }));
     }
-  };
+  }, [selectedSite]);
 
-  // 🔹 Supprimer un site
-  const deleteSite = async (id: number) => {
+  // ✅ deleteSite
+  const deleteSite = useCallback(async (id: number) => {
+    setOperationLoading(p => ({ ...p, delete: true }));
     try {
       await SiteService.deleteSite(id);
-      setSites((prev) => prev.filter((s) => Number(s.id) !== Number(id)));
-      if (Number(selectedSite?.id) === id) {
-        setSelectedSite(null);
-      }
-      toast.success("Site supprimé avec succès !");
-    } catch (error) {
-      console.error("Erreur lors de la suppression du site :", error);
-      toast.error("Erreur lors de la suppression du site.");
-      throw error;
+      setSites(prev => prev.filter(s => Number(s.id) !== Number(id)));
+      if (Number(selectedSite?.id) === Number(id)) setSelectedSite(null);
+    } catch (err: any) {
+      console.error("Erreur suppression site :", err);
+      throw err;
+    } finally {
+      setOperationLoading(p => ({ ...p, delete: false }));
     }
-  };
+  }, [selectedSite]);
 
-  // 🔹 Vider les sites
-  const clearSites = () => {
+  // ✅ clearSites
+  const clearSites = useCallback(() => {
     setSites([]);
     setSelectedSite(null);
     setHasLoaded(false);
-  };
+  }, []);
+
+  // ✅ clearError
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
 
   return (
     <SiteContext.Provider
@@ -124,12 +164,15 @@ export const SiteProvider: React.FC<{ children: React.ReactNode }> = ({ children
         selectedSite,
         loading,
         hasLoaded,
+        error,
+        operationLoading,
         fetchSites,
         fetchSite,
         createSite,
         updateSite,
         deleteSite,
         clearSites,
+        clearError,
       }}
     >
       {children}
@@ -137,4 +180,11 @@ export const SiteProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export const useSites = () => useContext(SiteContext);
+// ✅ CORRECTION : Export correct du hook
+export function useSites() {
+  const context = useContext(SiteContext);
+  if (context === undefined) {
+    throw new Error('useSites must be used within a SiteProvider');
+  }
+  return context;
+}

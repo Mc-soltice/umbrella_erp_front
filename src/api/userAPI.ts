@@ -1,7 +1,7 @@
 import axiosClient from './axiosClient';
 
 // userApi.ts
-export const getUsers = () => axiosClient.get('/users');
+export const getUsers = () => axiosClient.get('/users/');
 export const getUser = (id: number) => axiosClient.get(`/users/${id}`);
 export const createUser = (data: any) => axiosClient.post('/users', data);
 export const updateUser = (id: number, data: any) => axiosClient.patch(`/users/${id}`, data);

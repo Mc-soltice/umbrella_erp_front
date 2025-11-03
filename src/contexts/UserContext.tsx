@@ -1,11 +1,12 @@
-// src/contexts/UserContext.tsx
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { UserService } from "../services/UserService";
 import type { User } from "@/types/Types";
+import toast from "react-hot-toast";
 
 interface UserContextType {
   users: User[];
   loading: boolean;
+  hasLoaded: boolean; // ✅ ajouté ici
   fetchUsers: () => Promise<void>;
   createUser: (data: Omit<User, "id"> & { password: string; password_confirmation: string }) => Promise<void>;
   updateUser: (id: number, data: Partial<User>) => Promise<void>;
@@ -16,71 +17,96 @@ interface UserContextType {
 const UserContext = createContext<UserContextType>({} as UserContextType);
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+
+  // Liste des utilisateurs
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
 
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const data = await UserService.getUsers();
-      setUsers(data);
-    } catch (error) {
-      console.error('Erreur dans fetchUsers:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Indique si une opération de chargement est en cours
+  const [loading, setLoading] = useState(false);
 
-  const createUser = async (data: any) => {
+  // ✅ Indique si le premier chargement est terminé (utile pour éviter les boucles)
+  const [hasLoaded, setHasLoaded] = useState(false);
+
+  const fetchUsers = useCallback(async () => {
+  console.log('🔄 fetchUsers appelé');
+  setLoading(true);
+  try {
+    const data = await UserService.getUsers();
+    console.log('📦 Données reçues de l\'API:', data);
+    console.log('📊 Type de données:', typeof data);
+    console.log('🔢 Est un array?:', Array.isArray(data));
+
+    // ✅ CORRECTION ICI : Extraire le tableau de data.data
+    const usersArray = Array.isArray(data) ? data : (data.data || []);
+    console.log('👥 Users à enregistrer:', usersArray);
+
+    setUsers(usersArray);
+    setHasLoaded(true);
+  } catch (error) {
+    console.error('❌ Erreur chargement users :', error);
+    toast.error("Impossible de charger les utilisateurs.");
+    setUsers([]);
+    setHasLoaded(true);
+  } finally {
+    setLoading(false);
+  }
+}, []);
+
+  const createUser = useCallback(async (data: any) => {
     try {
       await UserService.createUser(data);
-      await fetchUsers(); // Recharger la liste
+      toast.success("Utilisateur créé !");
+      await fetchUsers();
     } catch (error) {
-      console.error('Erreur dans createUser:', error);
+      console.error("Erreur création user :", error);
+      toast.error("Échec de création de l’utilisateur.");
       throw error;
     }
-  };
+  }, [fetchUsers]);
 
-  const updateUser = async (id: number, data: Partial<User>) => {
+  const updateUser = useCallback(async (id: number, data: Partial<User>) => {
     try {
       await UserService.updateUser(id, data);
+      toast.success("Utilisateur mis à jour !");
       await fetchUsers();
     } catch (error) {
-      console.error('Erreur dans updateUser:', error);
+      console.error("Erreur maj user :", error);
       throw error;
     }
-  };
+  }, [fetchUsers]);
 
-  const deleteUser = async (id: number) => {
+  const deleteUser = useCallback(async (id: number) => {
     try {
       await UserService.deleteUser(id);
-      setUsers((prev) => prev.filter((u) => u.id !== id));
+      setUsers(prev => prev.filter(u => u.id !== id));
+      toast.success("Utilisateur supprimé !");
     } catch (error) {
-      console.error('Erreur dans deleteUser:', error);
+      console.error("Erreur suppression user :", error);
       throw error;
     }
-  };
+  }, []);
 
-  const toggleLock = async (id: number) => {
+  const toggleLock = useCallback(async (id: number) => {
     try {
       await UserService.toggleLock(id);
+      toast.success("État du compte mis à jour !");
       await fetchUsers();
     } catch (error) {
-      console.error('Erreur dans toggleLock:', error);
+      console.error("Erreur toggleLock :", error);
       throw error;
     }
-  };
+  }, [fetchUsers]);
 
-  // ✅ UserContext se charge automatiquement au montage
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   return (
     <UserContext.Provider
       value={{
         users,
         loading,
+        hasLoaded,
         fetchUsers,
         createUser,
         updateUser,

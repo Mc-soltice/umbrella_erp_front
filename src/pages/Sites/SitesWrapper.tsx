@@ -1,13 +1,14 @@
-// src/pages/Sites/SiteWrapper.tsx
+// src/pages/Sites/SitesWrapper.tsx
 import { SiteProvider } from '../../contexts/SiteContext';
-import SitesManagement from './SitesManagement';
+import { UserProvider } from '../../contexts/UserContext'; // 🔹 IMPORT AJOUTÉ
+import SiteManagement from './SitesManagement';
 
 export default function SitesWrapper() {
   return (
-    <SiteProvider>
-      <SitesManagement />
-    </SiteProvider>
+    <UserProvider> {/* 🔹 AJOUT DU USER PROVIDER */}
+      <SiteProvider>
+        <SiteManagement />
+      </SiteProvider>
+    </UserProvider>
   );
 }
-
-

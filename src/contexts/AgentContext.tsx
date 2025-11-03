@@ -1,7 +1,7 @@
 // src/contexts/AgentContext.tsx
 import React, { createContext, useContext, useState } from "react";
 import { AgentService } from "../services/AgentService";
-import type { Agent } from "../types/Types";
+import type { Agent, Site } from "../types/Types";
 
 interface AgentContextType {
   agents: Agent[];
@@ -13,34 +13,35 @@ interface AgentContextType {
   createAgent: (data: Partial<Agent>) => Promise<Agent>;
   updateAgent: (id: number, data: Partial<Agent>) => Promise<Agent>;
   deleteAgent: (id: number) => Promise<void>;
-  getAgentStats: (id: number) => Promise<any>;
-  clearAgents: () => void; // Nouvelle fonction pour vider les données
+  groupAgentsBySite: (agents: Agent[]) => { site: Site; agents: Agent[] }[]; // Ajouté
+  clearAgents: () => void;
 }
 
 const AgentContext = createContext<AgentContextType>({} as AgentContextType);
 
-// ✅ Instance unique du service
 const agentService = new AgentService();
 
 export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [hasLoaded, setHasLoaded] = useState<boolean>(false); // Nouvel état pour suivre le chargement
+  const [hasLoaded, setHasLoaded] = useState<boolean>(false);
 
-  // 🔹 Récupérer tous les agents (MAINTENANT PAREESSEUX)
   const fetchAgents = async () => {
-    // Si déjà chargé, on ne recharge pas
     if (hasLoaded && agents.length > 0) {
       return;
     }
-    
+
     setLoading(true);
     try {
+      console.log('🔹 Début du fetchAgents...');
       const data = await agentService.getAgents();
+      console.log('🔹 Données reçues dans le contexte:', data);
       setAgents(data);
       setHasLoaded(true);
+      console.log('🔹 État mis à jour - agents count:', data.length);
     } catch (error) {
+      console.error('❌ Erreur dans fetchAgents:', error);
       setHasLoaded(false);
       throw error;
     } finally {
@@ -48,7 +49,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // 🔹 Récupérer un agent par ID
   const fetchAgent = async (id: number) => {
     setLoading(true);
     try {
@@ -59,14 +59,12 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // 🔹 Créer un nouvel agent
   const createAgent = async (data: Partial<Agent>) => {
     const newAgent = await agentService.createAgent(data);
     setAgents((prev) => [...prev, newAgent]);
     return newAgent;
   };
 
-  // 🔹 Mettre à jour un agent existant
   const updateAgent = async (id: number, data: Partial<Agent>) => {
     const updated = await agentService.updateAgent(id, data);
     setAgents((prev) => prev.map((a) => (a.id === id ? updated : a)));
@@ -76,7 +74,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return updated;
   };
 
-  // 🔹 Supprimer un agent
   const deleteAgent = async (id: number) => {
     await agentService.deleteAgent(id);
     setAgents((prev) => prev.filter((a) => a.id !== id));
@@ -85,20 +82,15 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // 🔹 Récupérer stats d'un agent
-  const getAgentStats = async (id: number) => {
-    return await agentService.getAgentStats(id);
-  };
-
-  // 🔹 Nouvelle fonction pour vider les données (utile quand on quitte la page)
   const clearAgents = () => {
     setAgents([]);
     setSelectedAgent(null);
     setHasLoaded(false);
   };
 
-  // ❌ SUPPRIMÉ : Le useEffect qui charge automatiquement au montage
-  // Les données ne seront chargées que quand fetchAgents() sera appelé manuellement
+  const groupAgentsBySite = (agentsToGroup: Agent[]) => {
+    return agentService.groupAgentsBySite(agentsToGroup);
+  };
 
   return (
     <AgentContext.Provider
@@ -112,7 +104,7 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         createAgent,
         updateAgent,
         deleteAgent,
-        getAgentStats,
+        groupAgentsBySite,
         clearAgents,
       }}
     >
@@ -121,5 +113,14 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 };
 
-// ✅ Hook custom
-export const useAgents = () => useContext(AgentContext);
+function useAgents() {
+  const context = useContext(AgentContext);
+  if (context === undefined) {
+    throw new Error('useAgents must be used within an AgentProvider');
+  }
+  return context;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export { useAgents };
+

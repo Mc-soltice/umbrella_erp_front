@@ -1,19 +1,20 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Sidebar from './components/Layout/Sidebar';
-import Header from './components/Layout/Header';
+// src/App.tsx
+import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import Login from './components/Auth/LoginForm';
-import { useAuth } from './contexts/AuthContext';
+import Header from './components/Layout/Header';
+import Sidebar from './components/Layout/Sidebar';
+import { AppProvider } from './contexts/AppContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
-// Import des wrappers avec leurs propres providers
-import CandidatureWrapper from './pages/Candidatures/CandidatureWrapper';
+// Import des wrappers - CORRECTION DU CHEMIN
 import AgentsWrapper from './pages/Agents/AgentsWrapper';
-import PlanningWrapper from './pages/Planninigs/PlanningWrapper';
-import UserWrapper from './pages/Users/UserWrapper';
+import CandidatureWrapper from './pages/Candidatures/CandidatureWrapper';
+import PlanningWrapper from './pages/Plannings/PlanningWrapper'; // ✅ Correction
 import SitesWrapper from './pages/Sites/SitesWrapper';
-
+import UserWrapper from './pages/Users/UserWrapper';
 
 function AppContent() {
-  const { logout } = useAuth();
+  const { logout } = useAuth(); // ✅ Retirer user si non utilisé
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -31,11 +32,10 @@ function AppContent() {
             <Route path="/plannings" element={<PlanningWrapper />} />
             <Route path="/settings" element={<UserWrapper />} />
             <Route path="/sites" element={<SitesWrapper />} />
-            {/* Ajoute tes autres routes ici */}
-            <Route path="/chat" element={<div>Chat interne (non implémenté)</div>} />
-            <Route path="/responsables" element={<div>Responsables (non implémenté)</div>} />
-            <Route path="/files" element={<div>Gestion des fichiers (non implémenté)</div>} />
-            <Route path="/transactions" element={<div>État des transactions (non implémenté)</div>} />
+            <Route path="/chat" element={<div className="p-8 text-center">Chat interne (non implémenté)</div>} />
+            <Route path="/responsables" element={<div className="p-8 text-center">Responsables (non implémenté)</div>} />
+            <Route path="/files" element={<div className="p-8 text-center">Gestion des fichiers (non implémenté)</div>} />
+            <Route path="/transactions" element={<div className="p-8 text-center">État des transactions (non implémenté)</div>} />
           </Routes>
         </main>
       </div>
@@ -51,7 +51,7 @@ function App() {
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Chargement...</p>
+          <p className="mt-4 text-gray-600">Chargement de l'application...</p>
         </div>
       </div>
     );
@@ -63,7 +63,12 @@ function App() {
 
   return (
     <Router>
-      <AppContent />
+      <AppProvider>
+
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </AppProvider>
     </Router>
   );
 }

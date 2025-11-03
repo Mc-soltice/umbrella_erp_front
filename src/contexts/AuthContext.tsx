@@ -1,8 +1,8 @@
 // src/contexts/AuthContext.tsx
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { AuthService } from "../services/AuthService";
 import type { User } from "../types/Types";
-import toast from "react-hot-toast";
 
 interface AuthContextType {
   login: (matricule: string, password: string) => Promise<boolean>;
@@ -27,14 +27,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const savedToken = localStorage.getItem("authToken");
         const savedUser = localStorage.getItem("authUser");
-        
+
         console.log("Initialisation auth - Token:", savedToken);
         console.log("Initialisation auth - User:", savedUser);
 
         if (savedToken && savedUser) {
           // Vérifier si le token est valide en récupérant les infos utilisateur
           const currentUser = await AuthService.getCurrentUser();
-          
+
           if (currentUser) {
             setToken(savedToken);
             setUser(currentUser);

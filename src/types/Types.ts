@@ -6,8 +6,9 @@ export interface User {
   email: string;
   location: string;
   phone?: string;
-  roles: string;
+  roles: string[];
 }
+
 // Gestion des candidatures
 export interface Candidature {
   id: string;
@@ -16,7 +17,7 @@ export interface Candidature {
   phone: number;
   email: string;
   location: string;
-  create_at: Date; // Assurez-vous que c'est bien create_at et non createAt
+  create_at: Date;
 }
 
 export interface CreateCandidatureData {
@@ -48,7 +49,7 @@ export interface Notification {
 export interface MessageChat {
   id: string;
   expediteurId: string;
-  destinataireId?: string; // undefined pour messages de groupe
+  destinataireId?: string;
   contenu: string;
   dateEnvoi: Date;
   lu: boolean;
@@ -69,7 +70,7 @@ export interface Dossier {
   id: string;
   last_name: string;
   description?: string;
-  parentId?: string; // Pour les sous-dossiers
+  parentId?: string;
   proprietaireId: string;
   partage: 'prive' | 'equipe' | 'public';
   dateCreation: Date;
@@ -81,18 +82,19 @@ export interface Fichier {
   last_name: string;
   last_nameOriginal: string;
   extension: string;
-  taille: number; // en bytes
-  type: string; // MIME type
+  taille: number;
+  type: string;
   dossierId: string;
   proprietaireId: string;
-  url: string; // URL de téléchargement
+  url: string;
   dateCreation: Date;
   dateModification: Date;
   description?: string;
   tags: string[];
 }
 
-// types/Types.ts
+// --- Agents & Sites ---
+// src/types/Types.ts
 export interface Agent {
   id: number;
   matricule: string;
@@ -100,68 +102,105 @@ export interface Agent {
   last_name: string;
   phone: string;
   email: string;
-  status: boolean;
-  site: string;
-  responsable: string;
+  location: string;
+  status?: boolean;
+  site: {
+    id: number;
+    name: string;
+    location: string;
+    responsable?: {
+      id: number;
+      first_name: string;
+      last_name: string;
+      matricule: string;
+    };
+  };
+  // responsable?: string;
   created_at: Date;
+  updated_at: Date;
 }
 
 export interface Site {
   id: number;
   name: string;
   location: string;
-  responsable_id?: number;
-  responsable?: User; // ✅ AJOUT : Pour avoir les infos du responsable
-  agents: Agent[];
-  created_at?: string; // ✅ AJOUT : Pour la date de création
-}
-
-export type Shift = 'morning' | 'evening';
-export type Status = 'present' | 'absent' | 'repos' | 'permutation';
-
-// src/types/planning.ts
-export interface PlanningAgent {
-  agent?: {
+  responsable?: {
+    id: number;
     first_name: string;
     last_name: string;
     matricule: string;
   };
-  shift: 'morning' | 'evening';
-  status: 'present' | 'absent' | 'repos' | 'permutation';
-  motif?: string;
-  remplacant_id?: number;
+  agents_count?: number;
+}
+
+export interface AgentApiResponse {
+  id: number;
+  matricule: string;
+  first_name: string;
+  last_name: string;
+  location: string;
+  phone: string;
+  email: string;
+  site: Site;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateSiteData {
+  name: string;
+  location: string;
+  responsable_id?: number;
+}
+
+// ✅ Remplacement de l’interface vide par un type
+export type UpdateSiteData = Partial<CreateSiteData>;
+
+
+// --- Planning et présence ---
+
+// ✅ remplacement des enums par des unions littérales
+export type AttendanceStatus = 'WORKED' | 'ABSENT' | 'REST' | 'REPLACEMENT';
+export type ShiftType = 'MORNING' | 'EVENING';
+
+export interface PlanningAgent {
+  id?: number;
+  agent_id: number;
+  agent?: Agent;
+  shift: ShiftType;
+  status: AttendanceStatus;
+  motif?: string | null;
+  remplacant_id?: number | null;
+  remplacant?: Agent | null;
 }
 
 export interface Planning {
   id: number;
-  site_id: number;
+  site: string;
   date: string;
-  agents: PlanningAgent[];
-  site?: {
-    id: number;
-    name: string;
-    address: string;
+  shifts: {
+    day: PlanningAgent[];
+    evening: PlanningAgent[];
   };
-  created_at?: string;
-  updated_at?: string;
+  created_by: string;
+}
+
+export interface PlanningAgentInput {
+  agent_id: number;
+  status: AttendanceStatus;
+  reason?: string;
+  remplacant_id?: number;
 }
 
 export interface CreatePlanningData {
   site_id: number;
   date: string;
-  agents: Omit<PlanningAgent, 'agent'>[];
+  shifts: {
+    MORNING: { agents: PlanningAgentInput[] };
+    EVENING: { agents: PlanningAgentInput[] };
+  };
+  created_by: number;
 }
 
-export interface UpdatePlanningData extends Partial<CreatePlanningData> { }
-
-
-export interface Notification {
-  id: string;
-  utilisateurId: string;
-  titre: string;
-  message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
-  lue: boolean;
-  dateCreation: Date;
+export interface UpdatePlanningData extends CreatePlanningData {
+  id: number;
 }
-
